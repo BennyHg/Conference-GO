@@ -61,4 +61,21 @@ def api_show_presentation(request, pk):
         }
     }
     """
-    return JsonResponse({})
+    p = Presentation.objects.get(id=pk)
+    return JsonResponse(
+        {
+            "presenter_name": p.presenter_name,
+            "company_name": p.company_name,
+            "presenter_email": p.presenter_email,
+            "title": p.title,
+            "synopsis": p.synopsis,
+            "created": p.created,
+            "status": {
+                "name": p.status.name
+            },
+            "conference": {
+                "name": p.conference.name,
+                "href": p.conference.get_api_url(),
+            },
+        }
+    )
