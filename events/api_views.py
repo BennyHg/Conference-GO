@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from .acls import get_weather_data, get_photo
 from .models import Conference, Location, State
 from common.json import ModelEncoder
 import json
@@ -28,6 +29,7 @@ class LocationDetailEncoder(ModelEncoder):
         "room_count",
         "created",
         "updated",
+        "picture_url",
     ]
 
     # can pull specific pieces of key/value pairs
@@ -112,8 +114,13 @@ def api_list_conferences(request):
 def api_show_conference(request, pk):
     if request.method == "GET":
         conference = Conference.objects.get(id=pk)
+        weather = get_weather_data(
+            conference.location.city,
+            conference.location.state.abbreviation,
+        )
+
         return JsonResponse(
-            conference,
+            {"conference": conference, "weather": weather},
             encoder=ConferenceDetailEncoder,
             safe=False,
         )
@@ -134,6 +141,7 @@ def api_show_conference(request, pk):
 
         Conference.objects.filter(id=pk).update(**content)
         conference = Conference.objects.get(id=pk)
+
         return JsonResponse(
             conference,
             encoder=ConferenceDetailEncoder,
@@ -192,6 +200,11 @@ def api_list_locations(request):
         )
     else:
         content = json.loads(request.body)
+        # Use the city and state's abbreviation in the content dictionary
+        # to call the get_photo ACL function
+        photo = get_photo(content['city'], content['state'].abbreviation)
+        # Use the returned dictionary to update the content dictionary
+        content.update(photo)
         try:
             state = State.objects.get(abbreviation=content["state"])
             content["state"] = state
