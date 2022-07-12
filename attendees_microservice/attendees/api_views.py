@@ -108,9 +108,12 @@ def api_show_attendee(request, pk):
         content = json.loads(request.body)
         try:
             if "conference" in content:
-                conference = Conference.objects.get(id=content["conference"])
+                conference_href = content["conference"]
+                conference = ConferenceVO.objects.get(
+                    import_href=conference_href
+                    )
                 content["conference"] = conference
-        except Conference.DoesNotExist:
+        except ConferenceVO.DoesNotExist:
             return JsonResponse(
                 {"message": "Invalid conference id"},
                 status=400,
