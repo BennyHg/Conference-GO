@@ -5,6 +5,7 @@ from events.models import Conference
 from events.api_views import ConferenceListEncoder
 from common.json import ModelEncoder
 import json
+import pika
 
 
 class PresentationListEncoder(ModelEncoder):
@@ -166,3 +167,57 @@ def api_show_presentation(request, pk):
     #         },
     #     }
     # )
+
+
+@require_http_methods(["PUT"])
+def api_approve_presentation(request, pk):
+    presentation = Presentation.objects.get(id=pk)
+    content_body = {
+            "presenter_name": presentation.presenter_name,
+            "presenter_email": presentation.presenter_email,
+            "title": presentation.title,
+        },
+    presentation.approve()
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue="presentation_approvals")
+    body_data = json.dumps(content_body)
+    channel.basic_publish(
+        exchange="",
+        routing_key="presentation_approvals",
+        body=body_data
+    )
+    connection.close()
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )
+
+
+@require_http_methods(["PUT"])
+def api_reject_presentation(request, pk):
+    presentation = Presentation.objects.get(id=pk)
+    content_body = {
+            "presenter_name": presentation.presenter_name,
+            "presenter_email": presentation.presenter_email,
+            "title": presentation.title,
+        },
+    presentation.reject()
+    parameters = pika.ConnectionParameters(host="rabbitmq")
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.queue_declare(queue="presentation_rejections")
+    body_data = json.dumps(content_body)
+    channel.basic_publish(
+        exchange="",
+        routing_key="presentation_rejections",
+        body=body_data
+    )
+    connection.close()
+    return JsonResponse(
+        presentation,
+        encoder=PresentationDetailEncoder,
+        safe=False,
+    )
